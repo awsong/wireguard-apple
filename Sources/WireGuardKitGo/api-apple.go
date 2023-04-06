@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/netip"
 	"os"
 	"os/signal"
 	"runtime"
@@ -31,6 +32,7 @@ import (
 	"tailscale.com/client/tailscale"
 	"tailscale.com/ipn"
 	"tailscale.com/types/logger"
+	"tailscale.com/types/preftype"
 )
 
 var loggerFunc unsafe.Pointer
@@ -84,6 +86,24 @@ func wgSetLogger(context, loggerFn uintptr) {
 	loggerCtx = unsafe.Pointer(context)
 	loggerFunc = unsafe.Pointer(loggerFn)
 }
+func createPref() *ipn.Prefs {
+	routes := make([]netip.Prefix, 0)
+	var tags []string
+	prefs := ipn.NewPrefs()
+	prefs.ControlURL = "https://sdp.3mao.uk"
+	prefs.WantRunning = true
+	prefs.AllowSingleHosts = true
+	prefs.RunSSH = false
+
+	prefs.AdvertiseRoutes = routes
+	prefs.AdvertiseTags = tags
+	prefs.Hostname = ""
+	prefs.LoggedOut = false
+	prefs.OperatorUser = ""
+	prefs.NetfilterMode = preftype.NetfilterOn
+
+	return prefs
+}
 
 //export wgTurnOn
 func wgTurnOn(settings *C.char, tunFd int32) int32 {
@@ -127,12 +147,13 @@ func wgTurnOn(settings *C.char, tunFd int32) int32 {
 	}
 	tunnelHandles[i] = tunnelHandle{nil, deviceLogger}
 	StartDaemon(context.Background(), deviceLogger.Verbosef, "Mirage")
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 	lc := tailscale.LocalClient{
 		Socket:        socketPath,
 		UseSocketOnly: false}
 	lc.Start(context.Background(), ipn.Options{
-		AuthKey: "tskey-auth-kJyHSE3CNTRL-myaNpYedckdWzaAXzQs1edCKzFdRQaqd",
+		AuthKey:     "08b732915ba16b288b950812b3417dbfcae77602b25b9f98",
+		UpdatePrefs: createPref(),
 	})
 	return i
 }
