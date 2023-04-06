@@ -14,6 +14,7 @@ package main
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -24,10 +25,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/tailscale/wireguard-go/device"
+	"github.com/tailscale/wireguard-go/tun"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/tun"
+	"tailscale.com/client/tailscale"
+	"tailscale.com/ipn"
+	"tailscale.com/types/logger"
 )
 
 var loggerFunc unsafe.Pointer
@@ -84,40 +87,33 @@ func wgSetLogger(context, loggerFn uintptr) {
 
 //export wgTurnOn
 func wgTurnOn(settings *C.char, tunFd int32) int32 {
-	logger := &device.Logger{
+	deviceLogger := &device.Logger{
 		Verbosef: CLogger(0).Printf,
 		Errorf:   CLogger(1).Printf,
 	}
 	dupTunFd, err := unix.Dup(int(tunFd))
 	if err != nil {
-		logger.Errorf("Unable to dup tun fd: %v", err)
+		deviceLogger.Errorf("Unable to dup tun fd: %v", err)
 		return -1
 	}
 
 	err = unix.SetNonblock(dupTunFd, true)
 	if err != nil {
-		logger.Errorf("Unable to set tun fd as non blocking: %v", err)
+		deviceLogger.Errorf("Unable to set tun fd as non blocking: %v", err)
 		unix.Close(dupTunFd)
 		return -1
 	}
-	tun, err := tun.CreateTUNFromFile(os.NewFile(uintptr(dupTunFd), "/dev/tun"), 0)
+	f := os.NewFile(uintptr(dupTunFd), "/dev/tun")
+	tunDev, err := tun.CreateTUNFromFile(f, 0)
 	if err != nil {
-		logger.Errorf("Unable to create new tun device from fd: %v", err)
-		unix.Close(dupTunFd)
-		return -1
-	}
-	logger.Verbosef("Attaching to interface")
-	dev := device.NewDevice(tun, conn.NewStdNetBind(), logger)
-
-	err = dev.IpcSet(C.GoString(settings))
-	if err != nil {
-		logger.Errorf("Unable to set IPC settings: %v", err)
+		deviceLogger.Errorf("Unable to create new tun device from fd: %v", err)
 		unix.Close(dupTunFd)
 		return -1
 	}
 
-	dev.Up()
-	logger.Verbosef("Device started")
+	tstunNew = func(logf logger.Logf, tunName string) (tun.Device, string, error) {
+		return tunDev, f.Name(), nil
+	}
 
 	var i int32
 	for i = 0; i < math.MaxInt32; i++ {
@@ -129,7 +125,15 @@ func wgTurnOn(settings *C.char, tunFd int32) int32 {
 		unix.Close(dupTunFd)
 		return -1
 	}
-	tunnelHandles[i] = tunnelHandle{dev, logger}
+	tunnelHandles[i] = tunnelHandle{nil, deviceLogger}
+	StartDaemon(context.Background(), deviceLogger.Verbosef, "Mirage")
+	time.Sleep(10 * time.Second)
+	lc := tailscale.LocalClient{
+		Socket:        socketPath,
+		UseSocketOnly: false}
+	lc.Start(context.Background(), ipn.Options{
+		AuthKey: "tskey-auth-kJyHSE3CNTRL-myaNpYedckdWzaAXzQs1edCKzFdRQaqd",
+	})
 	return i
 }
 
