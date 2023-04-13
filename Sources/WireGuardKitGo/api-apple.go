@@ -11,6 +11,8 @@ package main
 // {
 // 	((void(*)(void *, int, const char *))func)(ctx, level, msg);
 // }
+// typedef void (*cb)(const char*, const char*);
+// static void helper(cb f, const char *x, const char *y) { f(x,y); }
 import "C"
 
 import (
@@ -105,12 +107,19 @@ func createPref() *ipn.Prefs {
 	return prefs
 }
 
+// Define the function signature for the callback function
+type CallbackFunc func(str1 *C.char, str2 *C.char)
+
 //export wgTurnOn
-func wgTurnOn(settings *C.char, tunFd int32) int32 {
+func wgTurnOn(ff C.cb, settings *C.char, tunFd int32) int32 {
 	deviceLogger := &device.Logger{
 		Verbosef: CLogger(0).Printf,
 		Errorf:   CLogger(1).Printf,
 	}
+	deviceLogger.Errorf("mmmmmmmmmmmmmmmmmmmmmm2")
+
+	C.helper(ff, C.CString("hello"), C.CString("world"))
+
 	dupTunFd, err := unix.Dup(int(tunFd))
 	if err != nil {
 		deviceLogger.Errorf("Unable to dup tun fd: %v", err)

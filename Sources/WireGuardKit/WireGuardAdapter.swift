@@ -2,12 +2,14 @@
 // Copyright © 2018-2023 WireGuard LLC. All Rights Reserved.
 
 import Foundation
+import Network
 import NetworkExtension
 
 #if SWIFT_PACKAGE
 import WireGuardKitGo
 import WireGuardKitC
 #endif
+import ObjectiveC.runtime
 
 public enum WireGuardAdapterError: Error {
     /// Failure to locate tunnel file descriptor.
@@ -373,7 +375,31 @@ public class WireGuardAdapter {
             throw WireGuardAdapterError.cannotLocateTunnelFileDescriptor
         }
 
-        let handle = wgTurnOn(wgConfig, tunnelFileDescriptor)
+        func callback(x: UnsafePointer<CChar>?, y: UnsafePointer<CChar>?) {
+            guard let x = x, let y = y else { return }
+            let stringX = String(cString: x)
+            let stringY = String(cString: y)
+            wg_log(.error, message: "rrrrrmmmmmmmmmmmmmmmmmmmmmm" + stringX + stringY)
+            
+            /*
+            let networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+
+            networkSettings.mtu = NSNumber(value: 1280)
+
+            let ipv4Settings = NEIPv4Settings(addresses: ["100.64.0.4"], subnetMasks: ["255.255.255.255"])
+            networkSettings.ipv4Settings = ipv4Settings
+
+            do{
+                try self.setNetworkSettings( networkSettings )
+            } catch {
+                self.logHandler(.error, "Failed to restart backend: \(error.localizedDescription)")
+            }
+            */
+        }
+
+        let swiftCallback: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Void = callback
+
+        let handle = wgTurnOn(swiftCallback, wgConfig, tunnelFileDescriptor)
         if handle < 0 {
             throw WireGuardAdapterError.startWireGuardBackend(handle)
         }
