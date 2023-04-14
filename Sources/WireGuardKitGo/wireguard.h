@@ -13,10 +13,11 @@
 typedef void(*logger_fn_t)(void *context, int level, const char *msg);
 extern void wgSetLogger(void *context, logger_fn_t logger_fn);
 //extern int wgTurnOn(const char *settings, int32_t tun_fd);
- typedef void (*cb)(const char*, const char*);
- static void helper(cb f, const char *x, const char *y) { f(x,y); }
-extern int wgTurnOn(cb ff, const char* settings, int32_t tunFd);
-//extern int wgTurnOn(void* callbackPtr, const char* settings, int32_t tunFd);
+
+typedef void (*cb)(void*, const char*, const char*);
+static void helper(cb f, void *userData, const char *x, const char *y) { f(userData,x,y); }
+extern int wgTurnOn(cb ff, void* userData, const char* settings, int32_t tunFd);
+
 extern void wgTurnOff(int handle);
 extern int64_t wgSetConfig(int handle, const char *settings);
 extern char *wgGetConfig(int handle);

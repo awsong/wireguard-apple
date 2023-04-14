@@ -313,7 +313,7 @@ public class WireGuardAdapter {
     ///   - networkSettings: an instance of type `NEPacketTunnelNetworkSettings`.
     /// - Throws: an error of type `WireGuardAdapterError`.
     /// - Returns: `PacketTunnelSettingsGenerator`.
-    private func setNetworkSettings(_ networkSettings: NEPacketTunnelNetworkSettings) throws {
+    public func setNetworkSettings(_ networkSettings: NEPacketTunnelNetworkSettings) throws {
         var systemError: Error?
         let condition = NSCondition()
 
@@ -375,13 +375,13 @@ public class WireGuardAdapter {
             throw WireGuardAdapterError.cannotLocateTunnelFileDescriptor
         }
 
-        func callback(x: UnsafePointer<CChar>?, y: UnsafePointer<CChar>?) {
+        func callback(context: UnsafeMutableRawPointer?, x: UnsafePointer<CChar>?, y: UnsafePointer<CChar>?) {
             guard let x = x, let y = y else { return }
             let stringX = String(cString: x)
             let stringY = String(cString: y)
             wg_log(.error, message: "rrrrrmmmmmmmmmmmmmmmmmmmmmm" + stringX + stringY)
-            
-            /*
+            let adapter = Unmanaged<WireGuardAdapter>.fromOpaque(context!).takeUnretainedValue()
+
             let networkSettings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
 
             networkSettings.mtu = NSNumber(value: 1280)
@@ -390,16 +390,17 @@ public class WireGuardAdapter {
             networkSettings.ipv4Settings = ipv4Settings
 
             do{
-                try self.setNetworkSettings( networkSettings )
+                try adapter.setNetworkSettings( networkSettings )
             } catch {
-                self.logHandler(.error, "Failed to restart backend: \(error.localizedDescription)")
+                adapter.logHandler(.error, "Failed to restart backend: \(error.localizedDescription)")
             }
-            */
         }
 
-        let swiftCallback: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Void = callback
+        let swiftCallback: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> Void = callback
+        let unmanagedAdapter = Unmanaged.passUnretained(self)
+        let context = unmanagedAdapter.toOpaque()
 
-        let handle = wgTurnOn(swiftCallback, wgConfig, tunnelFileDescriptor)
+        let handle = wgTurnOn(swiftCallback, context, wgConfig, tunnelFileDescriptor)
         if handle < 0 {
             throw WireGuardAdapterError.startWireGuardBackend(handle)
         }
