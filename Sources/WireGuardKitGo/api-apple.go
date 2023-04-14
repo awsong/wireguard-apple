@@ -118,7 +118,7 @@ func wgTurnOn(ff C.cb, userData *C.void, settings *C.char, tunFd int32) int32 {
 	}
 	deviceLogger.Errorf("mmmmmmmmmmmmmmmmmmmmmm2")
 
-	C.helper(ff, unsafe.Pointer(userData), C.CString("hello"), C.CString("world"))
+	C.helper(ff, unsafe.Pointer(userData), C.CString("100.64.0.6"), C.CString("255.255.255.255"))
 
 	dupTunFd, err := unix.Dup(int(tunFd))
 	if err != nil {

@@ -386,7 +386,7 @@ public class WireGuardAdapter {
 
             networkSettings.mtu = NSNumber(value: 1280)
 
-            let ipv4Settings = NEIPv4Settings(addresses: ["100.64.0.4"], subnetMasks: ["255.255.255.255"])
+            let ipv4Settings = NEIPv4Settings(addresses: [stringX], subnetMasks: [stringY])
             networkSettings.ipv4Settings = ipv4Settings
 
             do{
